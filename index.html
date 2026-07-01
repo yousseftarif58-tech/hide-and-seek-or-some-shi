@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Hide & Seek - Multiplayer Lobby</title>
+    <title>3D Hide & Seek - 4-Digit Code Matchmaker</title>
     <style>
         body {
             margin: 0;
@@ -32,33 +32,46 @@
             border-radius: 12px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             text-align: center;
-            width: 350px;
+            width: 380px;
             border: 1px solid #3b4266;
         }
-        #playerList {
-            margin-top: 15px;
+        .id-display {
             background: #0f111a;
+            padding: 12px;
             border-radius: 6px;
-            max-height: 200px;
-            overflow-y: auto;
-            padding: 10px;
-            text-align: left;
-        }
-        .player-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px;
-            border-bottom: 1px solid #222;
-        }
-        .player-item button {
-            background: #00ff66;
-            color: black;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
+            font-family: monospace;
+            font-size: 28px;
+            letter-spacing: 4px;
+            color: #00ffcc;
+            margin: 15px 0;
             font-weight: bold;
+            user-select: all;
+            border: 1px dashed #3b4266;
+            cursor: pointer;
+        }
+        input {
+            padding: 12px;
+            width: 80%;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border: none;
+            background: #0f111a;
+            color: white;
+            text-align: center;
+            font-size: 18px;
+            font-family: monospace;
+            letter-spacing: 2px;
+        }
+        button {
+            padding: 12px 20px;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 85%;
+            margin-top: 5px;
+            font-size: 16px;
         }
         #ui {
             position: absolute;
@@ -129,16 +142,14 @@
 
     <div id="lobbyPanel">
         <div class="lobby-box">
-            <h2>3D HIDE & SEEK LOBBY</h2>
-            <div id="nameSetup">
-                <input type="text" id="usernameInput" placeholder="Enter Your Name" style="padding:10px; width:80%; margin-bottom:10px; border-radius:4px; border:none;"><br>
-                <button id="joinLobbyBtn" style="padding:10px 20px; background:#4d94ff; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Join Server</button>
-            </div>
-            <div id="lobbyView" style="display:none;">
-                <p id="myDisplayTag" style="color:#00ffcc; font-weight:bold;"></p>
-                <p style="font-size:14px; color:#aaa;">Active Players Online:</p>
-                <div id="playerList">Scanning for peers...</div>
-            </div>
+            <h2>3D HIDE & SEEK</h2>
+            <p style="font-size:14px; color:#aaa; margin-bottom:5px;">Your 4-Digit Game Code (Click to copy):</p>
+            <div id="myIdDisplay" class="id-display">----</div>
+            
+            <hr style="border: 0; border-top: 1px solid #3b4266; margin: 20px 0;">
+            
+            <input type="text" id="targetIdInput" placeholder="Enter 4-Digit Friend Code" maxlength="4">
+            <button id="connectBtn" style="background:#4d94ff;">Join Game Room</button>
         </div>
     </div>
 
@@ -149,109 +160,92 @@
 
     <div id="ui">
         3D HIDE & SEEK <br>
+        <div id="roleTag" style="color: #ffcc00; font-size: 16px; margin-top:3px;">Assigning Role...</div>
         <div id="status" style="color: #4d94ff; margin-top: 5px; font-size: 14px;">Hiding Phase Active</div>
         Shotgun Cooldown (2.5s):<br>
         <div id="cooldownBar"><div id="cooldownProgress"></div></div>
     </div>
 
     <div id="controls-info">
-        <b>Hider (WASD):</b> Move around.<br>
-        <span style="color: #00ffcc;"><b>Camo Mode:</b> Hover mouse on any color & press <b>O</b></span><br><br>
-        <b>Seeker (Arrows):</b> Move (Locked during blindfold).<br>
+        <b>Hider Controls (WASD):</b> Move around.<br>
+        <span style="color: #00ffcc;"><b>Camo Mode:</b> Hover mouse on color & press <b>O</b></span><br><br>
+        <b>Seeker Controls (Arrows):</b> Move (Locked during blindfold).<br>
         <b>SPACEBAR:</b> Fire Shotgun.
     </div>
 
     <script>
-        // --- MULTIPLAYER LOBBY SYSTEM (PEERJS) ---
+        // --- MULTIPLAYER CODE CONTROLLER ---
         let peer;
         let conn;
-        let myName = "";
-        let amIHost = false;
+        let amISeeker = false; 
         let isConnected = false;
 
-        document.getElementById("joinLobbyBtn").addEventListener("click", () => {
-            const inputName = document.getElementById("usernameInput").value.trim();
-            if (!inputName) return alert("Please enter a name!");
-            myName = inputName;
+        // Generate a strict 4-digit room code number string
+        const fourDigitRoomId = Math.floor(1000 + Math.random() * 9000).toString();
 
-            document.getElementById("nameSetup").style.display = "none";
-            document.getElementById("lobbyView").style.display = "block";
-            document.getElementById("myDisplayTag").innerText = "You: " + myName;
-
-            initPeer();
+        peer = new Peer("room-" + fourDigitRoomId, {
+            host: '0.peerjs.com',
+            port: 443,
+            path: '/',
+            secure: true
         });
 
-        function initPeer() {
-            peer = new Peer(myName + "-" + Math.floor(Math.random()*1000), {
-                host: '0.peerjs.com',
-                port: 443,
-                path: '/',
-                secure: true
+        peer.on('open', (id) => {
+            const display = document.getElementById("myIdDisplay");
+            display.innerText = fourDigitRoomId;
+            display.addEventListener('click', () => {
+                navigator.clipboard.writeText(fourDigitRoomId);
+                alert("Game code copied: " + fourDigitRoomId);
             });
+        });
 
-            peer.on('open', (id) => {
-                fetchActivePlayers();
-                // REFRESH THE PLAYER LIST EVERY 3 SECONDS
-                setInterval(fetchActivePlayers, 3000); 
-            });
+        // Error catching if room code collision happens
+        peer.on('error', (err) => {
+            if(err.type === 'unavailable-id') {
+                // If ID is taken, reload page swiftly to pull a clean number
+                window.location.reload();
+            }
+        });
 
-            peer.on('connection', (connection) => {
-                conn = connection;
-                amIHost = true;
-                setupConnectionEvents();
-            });
-        }
-
-        function fetchActivePlayers() {
-            peer.listAllPeers((peers) => {
-                const listDiv = document.getElementById("playerList");
-                listDiv.innerHTML = "";
-                let count = 0;
-
-                peers.forEach(peerId => {
-                    if (peerId !== peer.id) {
-                        count++;
-                        const cleanName = peerId.split("-")[0];
-                        const row = document.createElement("div");
-                        row.className = "player-item";
-                        row.innerHTML = `<span>${cleanName}</span><button onclick="challengePlayer('${peerId}')">Connect</button>`;
-                        listDiv.appendChild(row);
-                    }
-                });
-
-                if (count === 0) listDiv.innerHTML = "<div style='color:#666; text-align:center;'>No one else online yet...</div>";
-            });
-        }
-
-        function challengePlayer(targetId) {
-            conn = peer.connect(targetId);
-            amIHost = false;
+        // When someone else enters our code
+        peer.on('connection', (connection) => {
+            conn = connection;
+            
+            // Pick host/guest rules randomly
+            amISeeker = Math.random() < 0.5;
             setupConnectionEvents();
-        }
+            
+            conn.on('open', () => {
+                conn.send({ type: "ROLE_ASSIGNMENT", seekerRole: !amISeeker });
+                startMatchSetup();
+            });
+        });
+
+        // Trigger manual link up
+        document.getElementById("connectBtn").addEventListener("click", () => {
+            const codeRaw = document.getElementById("targetIdInput").value.trim();
+            if (codeRaw.length !== 4 || isNaN(codeRaw)) return alert("Please enter a valid 4-digit number code!");
+            
+            conn = peer.connect("room-" + codeRaw);
+            setupConnectionEvents();
+        });
 
         function setupConnectionEvents() {
-            conn.on('open', () => {
-                isConnected = true;
-                document.getElementById("lobbyPanel").style.display = "none";
-                document.getElementById("ui").style.display = "block";
-                document.getElementById("controls-info").style.display = "block";
-                
-                if(amIHost) {
-                    document.getElementById("blindfold").style.display = "flex";
-                    startBlindfoldTimer();
-                }
-                init3DGame();
-            });
-
             conn.on('data', (data) => {
-                if(!gameInitialized) return;
-                if (amIHost) {
+                if (data.type === "ROLE_ASSIGNMENT") {
+                    amISeeker = data.seekerRole;
+                    startMatchSetup();
+                    return;
+                }
+
+                if (!gameInitialized) return;
+
+                if (amISeeker) {
                     hiderGroup.position.x = data.x;
                     hiderGroup.position.z = data.z;
                     if (data.camoPart) {
                         bodyParts[data.camoPart].material.color.setHex(data.camoColor);
                     }
-                    if (data.eliminated) hiderGroup.scale.set(0.01,0.01,0.01);
                 } else {
                     seeker.position.x = data.x;
                     seeker.position.z = data.z;
@@ -268,7 +262,28 @@
             });
         }
 
-        // --- GAME ENGINE (THREE.JS) ---
+        function startMatchSetup() {
+            isConnected = true;
+            document.getElementById("lobbyPanel").style.display = "none";
+            document.getElementById("ui").style.display = "block";
+            document.getElementById("controls-info").style.display = "block";
+            
+            const roleTag = document.getElementById("roleTag");
+            if (amISeeker) {
+                roleTag.innerText = "ROLE: SEEKER (Red Cube)";
+                roleTag.style.color = "#ff4d4d";
+                document.getElementById("blindfold").style.display = "flex";
+                startBlindfoldTimer();
+            } else {
+                roleTag.innerText = "ROLE: HIDER (Green Character)";
+                roleTag.style.color = "#00ff66";
+                document.getElementById("status").innerText = "Hiding Phase Active! Blend in!";
+            }
+            
+            init3DGame();
+        }
+
+        // --- GAME ENGINE SETUP (THREE.JS) ---
         let scene, camera, renderer, hiderGroup, seeker, obstacles;
         const bodyParts = {};
         let gameInitialized = false;
@@ -294,7 +309,6 @@
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
             document.body.appendChild(renderer.domElement);
 
             scene.add(new THREE.AmbientLight(0xffffff, 0.25));
@@ -307,7 +321,6 @@
             scene.add(floor);
 
             obstacles = [];
-            Math.seed = 42; 
             for (let i = 0; i < 40; i++) {
                 let rx = (Math.sin(i) * 45);
                 let rz = (Math.cos(i * 2) * 45);
@@ -367,7 +380,7 @@
                 mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
             });
             window.addEventListener('keydown', (e) => {
-                if (e.key.toLowerCase() === 'o' && !amIHost) { 
+                if (e.key.toLowerCase() === 'o' && !amISeeker) { 
                     raycaster.setFromCamera(mouse, camera);
                     const targets = scene.children.filter(child => child !== hiderGroup && child !== seeker);
                     const intersects = raycaster.intersectObjects(targets, true);
@@ -409,8 +422,9 @@
 
         function animate() {
             requestAnimationFrame(animate);
+            if (!gameInitialized) return;
 
-            if (amIHost) {
+            if (amISeeker) {
                 if (!blindfoldActive) {
                     let sX = seeker.position.x, sZ = seeker.position.z;
                     if (keys['arrowup']) sZ -= SEEKER_SPEED;
@@ -424,6 +438,8 @@
                     if (keys[' ']) fireShotgun();
                 }
                 conn.send({ x: seeker.position.x, z: seeker.position.z });
+                camera.position.set(seeker.position.x, 30, seeker.position.z + 20);
+                camera.lookAt(seeker.position);
             } else {
                 let hX = hiderGroup.position.x, hZ = hiderGroup.position.z;
                 if (keys['w']) hZ -= HIDER_SPEED;
@@ -435,6 +451,8 @@
                 if (!checkCollisions(hiderGroup.position.x, hZ)) hiderGroup.position.z = hZ;
 
                 conn.send({ x: hiderGroup.position.x, z: hiderGroup.position.z });
+                camera.position.set(hiderGroup.position.x, 30, hiderGroup.position.z + 20);
+                camera.lookAt(hiderGroup.position);
             }
 
             if (!canShoot) {
@@ -443,8 +461,6 @@
                 if(pct >= 100) canShoot = true;
             }
 
-            camera.position.set(seeker.position.x, 30, seeker.position.z + 20);
-            camera.lookAt(seeker.position);
             renderer.render(scene, camera);
         }
     </script>
